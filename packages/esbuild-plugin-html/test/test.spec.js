@@ -79,6 +79,76 @@ body {
 `);
     });
 
+    it('should bundle webapp with scripts respecting publicPath', async () => {
+        const { outputFiles } = await esbuild.build({
+            absWorkingDir: fileURLToPath(new URL('.', import.meta.url)),
+            entryPoints: [fileURLToPath(new URL('fixture/index.iife.html', import.meta.url))],
+            sourceRoot: '/',
+            chunkNames: '[name]-[hash]',
+            outdir: 'out',
+            format: 'esm',
+            bundle: true,
+            write: false,
+            publicPath: '/foobar',
+            plugins: [
+                htmlPlugin(),
+            ],
+        });
+
+        const [index, js, css] = outputFiles;
+
+        expect(outputFiles).to.have.lengthOf(3);
+
+        expect(index.path).endsWith(path.join(path.sep, 'out', 'index.iife.html'));
+        expect(index.text).to.be.equal(`<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script type="application/javascript">
+        (function() {
+            function loadStyle(url) {
+                var l = document.createElement('link');
+                l.rel = 'stylesheet';
+                l.href = url;
+                document.head.appendChild(l);
+            }
+            loadStyle('/foobar/index-5QHY5U3E.css');
+        }());
+    </script>
+</head>
+
+<body>
+    <script src="/foobar/index-7JZQ77EC.js" type="application/javascript"></script>
+</body>
+
+</html>`);
+
+        expect(js.path).endsWith(path.join(path.sep, 'out', 'index-7JZQ77EC.js'));
+        expect(js.text).to.be.equal(`"use strict";
+(() => {
+  // fixture/lib.js
+  var log = console.log.bind(console);
+
+  // fixture/index.js
+  window.addEventListener("load", () => {
+    log("test");
+  });
+})();
+`);
+
+        expect(css.path).endsWith(path.join(path.sep, 'out', 'index-5QHY5U3E.css'));
+        expect(css.text).to.be.equal(`/* fixture/index.css */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+`);
+    });
     it('should bundle webapp with scripts and sourcemaps', async () => {
         const { outputFiles } = await esbuild.build({
             absWorkingDir: fileURLToPath(new URL('.', import.meta.url)),
@@ -492,6 +562,64 @@ body {
 `);
 
         expect(cssSource.path).endsWith(path.join(path.sep, 'out', '1-EKADEBHI.css'));
+        expect(cssSource.text).to.be.equal(`/* fixture/1.css */
+body {
+  color: red;
+}
+`);
+    });
+
+    it('should bundle webapp with styles respecting publicPath', async () => {
+        const { outputFiles } = await esbuild.build({
+            absWorkingDir: fileURLToPath(new URL('.', import.meta.url)),
+            entryPoints: [fileURLToPath(new URL('fixture/index.css.html', import.meta.url))],
+            sourceRoot: '/',
+            chunkNames: '[name]-[hash]',
+            outdir: 'out',
+            bundle: true,
+            write: false,
+            publicPath: '/foobar',
+            plugins: [
+                htmlPlugin(),
+            ],
+        });
+
+        const [index, ...cssFiles] = outputFiles;
+        const cssFile = cssFiles.find((output) => output.path.includes(path.join(path.sep, 'out', 'index')));
+        const cssSource = cssFiles.find((output) => output.path.includes(path.join(path.sep, 'out', '1-')));
+
+        expect(outputFiles).to.have.lengthOf(3);
+
+        expect(index.path).endsWith(path.join(path.sep, 'out', 'index.css.html'));
+        expect(index.text).to.be.equal(`<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="/foobar/index-5QHY5U3E.css">
+    <style>
+        @import '/foobar/1-TOPTAOU5.css'
+    </style>
+</head>
+
+<body>
+</body>
+
+</html>`);
+
+        expect(cssFile.path).endsWith(path.join(path.sep, 'out', 'index-5QHY5U3E.css'));
+        expect(cssFile.text).to.be.equal(`/* fixture/index.css */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+`);
+
+        expect(cssSource.path).endsWith(path.join(path.sep, 'out', '1-TOPTAOU5.css'));
         expect(cssSource.text).to.be.equal(`/* fixture/1.css */
 body {
   color: red;
